@@ -1,0 +1,98 @@
+# SPDX-FileCopyrightText: 2026 Sascha Brawer <sascha@brawer.ch>
+# SPDX-License-Identifier: MIT
+#
+# Publishes a tagged release to crates.io via Trusted Publishing (OIDC, no
+# stored token) and attaches SLSA build-provenance for the packaged .crate.
+#
+# One-time setup is required on crates.io and GitHub — see RELEASING.md.
+#
+# To cut a release: bump `version` in Cargo.toml, commit, then
+#   git tag v0.1.2 && git push remo v0.1.2
+
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: stable
+
+      - name: Tag matches Cargo.toml version
+        run: |
+          crate=$(cargo metadata --no-deps --format-version 1 \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')
+          tag="${GITHUB_REF_NAME#v}"
+          echo "Cargo.toml: $crate    tag: $tag"
+          test "$crate" = "$tag"
+
+      - run: cargo test --locked --all-features
+
+      - name: Download the OSMViews dataset
+        run: | # keep in sync with osmviews::DOWNLOAD_URL
+          curl -fSL --retry 3 --retry-all-errors \
+            -o osmviews.tiff https://osmviews.toolforge.org/download/osmviews.tiff
+
+      - name: Run the ignored tests against the real dataset
+        run: cargo test --release --locked --all-features -- --ignored
+
+  publish:
+    name: publish to crates.io
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # OIDC for crates.io Trusted Publishing + provenance
+      attestations: write # store the build-provenance attestation
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: stable
+
+      - name: Package the crate
+        run: cargo package --locked
+
+      - name: Locate the .crate file
+        id: crate
+        run: echo "path=$(ls target/package/*.crate)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SLSA build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.crate.outputs.path }}
+
+      - name: Authenticate with crates.io
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
+        id: auth
+
+      - name: Publish
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME"
+          --repo "$GITHUB_REPOSITORY"
+          --title "$GITHUB_REF_NAME"
+          --generate-notes
+          --verify-tag
+          "${{ steps.crate.outputs.path }}"

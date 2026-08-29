@@ -106,6 +106,9 @@ Supply-chain posture is deliberately small:
 - **`cargo-deny`** runs in CI — weekly and on any change to `Cargo.*` — to catch
   known advisories and unwanted licenses. Dependabot proposes dependency and
   GitHub Actions updates as a single aggregated pull request each month.
+- **Releases** publish to crates.io via Trusted Publishing (short-lived OIDC
+  token, no stored secret) and carry SLSA v1.0 Build Level 3 provenance for the
+  packaged `.crate`. See `RELEASING.md`.
 - **One `unsafe` block**, the `Mmap::map` call, with its safety contract
   documented at the call site and on `OsmViews::open`.
 - All header parsing is bounds-checked, and a corrupt file is rejected at

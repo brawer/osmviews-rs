@@ -18,6 +18,7 @@ exclude = [
     "/deny.toml",
     "/CODE_OF_CONDUCT.md",
     "/CONTRIBUTING.md",
+    "/RELEASING.md",
     "/TECHNICAL_DESIGN.md",
     "/osmviews.tiff",
     "/osmviews.json",
