@@ -3,11 +3,23 @@
 
 name: Conventional Commits
 
+# PRs are squash-merged with the PR title as the commit subject, so the title is
+# what lands in main's history. This validates it against Conventional Commits
+# and derives a release-note label from it.
+#
+# pull_request_target (not pull_request) so it also runs on PRs from forks: it
+# only reads the PR title from the base repo's config and never checks out or
+# runs fork code.
+
 on:
   pull_request_target:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, reopened]
 
 permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   validate-pr-title:
@@ -30,3 +42,49 @@ jobs:
             build
             chore
             ci
+
+  # Derive the release-note label from the Conventional Commits type so it never
+  # has to be kept in sync by hand; these feed .github/release.yml's categories.
+  # Only ever adds a label, never removes one, so a title edit won't strip a
+  # label a human applied for another reason.
+  auto-label:
+    name: label from PR title
+    needs: [validate-pr-title]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Apply label for the Conventional Commits type
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Via env, never interpolated into the script: the title is
+          # attacker-controlled text on a fork PR, so templating it into `run:`
+          # would be a shell-injection hole.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ "$PR_TITLE" =~ ^([a-z]+)(\([a-zA-Z0-9_./-]+\))?(!)?:[[:space:]] ]]; then
+            type="${BASH_REMATCH[1]}"
+            breaking="${BASH_REMATCH[3]}"
+            if [[ -n "$breaking" ]]; then
+              label="breaking-change"
+            else
+              case "$type" in
+                feat)       label="enhancement" ;;
+                fix)        label="bug" ;;
+                docs)       label="documentation" ;;
+                perf)       label="enhancement" ;;
+                *)          label="" ;;
+              esac
+            fi
+            if [[ -n "$label" ]]; then
+              echo "Applying label: $label"
+              gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$label"
+            else
+              echo "Type '$type' maps to no label; leaving as-is."
+            fi
+          else
+            echo "Title is not Conventional Commits; leaving as-is (validate-pr-title should be failing)."
+          fi

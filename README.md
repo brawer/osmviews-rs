@@ -52,6 +52,14 @@ Rust 1.85. Raising the MSRV is a semver-minor change.
 Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). The design and
 its rationale are written up in [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md).
 
+## Sponsoring
+
+This crate and the [OSMViews](https://github.com/brawer/osmviews) pipeline behind
+it are maintained by [Sascha Brawer](https://github.com/brawer) as a volunteer
+effort. If your project relies on them, please consider sponsoring continued
+maintenance and future development via
+[GitHub Sponsors](https://github.com/sponsors/brawer).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
