@@ -16,6 +16,8 @@ the full per-release list of merged pull requests.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-29
+
 ### Changed
 
 - Minimum `miniz_oxide` is now 0.9 (was 0.8). No effect on this crate’s API or
@@ -39,5 +41,6 @@ Initial release.
   evictions, and other diagnostics for long-running jobs.
 - `DOWNLOAD_URL` — the published location of the dataset.
 
-[Unreleased]: https://github.com/brawer/osmviews-rs/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/brawer/osmviews-rs/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/brawer/osmviews-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/brawer/osmviews-rs/releases/tag/v0.1.0
