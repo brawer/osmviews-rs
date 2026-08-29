@@ -37,8 +37,11 @@ breaks.
 ## Cutting a release
 
 1. Pick the new version per the rules above and set `version` in `Cargo.toml`.
-2. Commit: `git commit -am "chore: release v0.1.2"`.
-3. Tag and push:
+2. In `CHANGELOG.md`, rename the `[Unreleased]` heading to the new version with
+   today’s date, add a fresh empty `[Unreleased]` section, and update the two
+   comparison links at the bottom.
+3. Commit: `git commit -am "chore: release v0.1.2"`.
+4. Tag and push:
 
    ```sh
    git tag v0.1.2
