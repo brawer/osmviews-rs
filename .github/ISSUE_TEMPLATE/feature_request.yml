@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 Sascha Brawer <sascha@brawer.ch>
+# SPDX-License-Identifier: MIT
+
+name: Feature request
+description: Suggest a capability or an API change.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the crate makes hard or impossible?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: >
+        What would the API or behaviour look like? Note that on-demand tile
+        loading over the network is a known non-goal for now — see
+        TECHNICAL_DESIGN.md.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

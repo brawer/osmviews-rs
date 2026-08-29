@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Sascha Brawer <sascha@brawer.ch>
+# SPDX-License-Identifier: MIT
+
+name: Bug report
+description: Something in the crate behaves incorrectly.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >
+        The smallest code that shows the problem. If it depends on a specific
+        location or on the dataset, include the coordinates and, if you can, the
+        dataset’s `Last-Modified` date.
+      render: rust
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Crate version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: rust
+    attributes:
+      label: Rust version and platform
+      placeholder: "rustc 1.90.0, x86_64-unknown-linux-gnu"
+    validations:
+      required: true

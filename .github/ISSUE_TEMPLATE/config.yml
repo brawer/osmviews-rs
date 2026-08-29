@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Sascha Brawer <sascha@brawer.ch>
+# SPDX-License-Identifier: MIT
+
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/brawer/osmviews-rs/security/advisories/new
+    about: Report privately — please do not open a public issue.
+  - name: Question or idea
+    url: https://github.com/brawer/osmviews-rs/discussions
+    about: For usage questions and open-ended discussion.
+  - name: The OSMViews dataset / pipeline
+    url: https://github.com/brawer/osmviews/issues
+    about: Issues with the data itself (coverage, values, update cadence) belong here.

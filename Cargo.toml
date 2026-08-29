@@ -19,6 +19,7 @@ exclude = [
     "/CODE_OF_CONDUCT.md",
     "/CONTRIBUTING.md",
     "/RELEASING.md",
+    "/SECURITY.md",
     "/TECHNICAL_DESIGN.md",
     "/osmviews.tiff",
     "/osmviews.json",
