@@ -36,16 +36,21 @@ breaks.
 
 ## Cutting a release
 
-1. Pick the new version per the rules above and set `version` in `Cargo.toml`.
+`main` is protected, so the version bump goes through a pull request; the tag is
+pushed afterwards and triggers the publish.
+
+1. On a branch, pick the new version per the rules above and set `version` in
+   `Cargo.toml`.
 2. In `CHANGELOG.md`, rename the `[Unreleased]` heading to the new version with
    today’s date, add a fresh empty `[Unreleased]` section, and update the two
    comparison links at the bottom.
-3. Commit: `git commit -am "chore: release v0.1.2"`.
-4. Tag and push:
+3. Open a PR titled `chore: release v0.1.2`, let CI pass, and squash-merge it.
+4. Tag the merged commit and push the tag:
 
    ```sh
+   git switch main && git pull
    git tag v0.1.2
-   git push remo main --follow-tags
+   git push remo v0.1.2
    ```
 
 The workflow then runs the full test suite including the `#[ignore]`d tests
