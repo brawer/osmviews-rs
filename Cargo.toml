@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 Sascha Brawer <sascha@brawer.ch>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "osmviews"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Ranking geographic locations by how much they are viewed on OpenStreetMap-based maps"
+license = "MIT"
+repository = "https://github.com/brawer/osmviews-rs"
+homepage = "https://osmviews.toolforge.org"
+readme = "README.md"
+keywords = ["openstreetmap", "osm", "geo", "ranking"]
+categories = ["science::geo"]
+exclude = [
+    "/.github",
+    "/deny.toml",
+    "/CODE_OF_CONDUCT.md",
+    "/CONTRIBUTING.md",
+    "/TECHNICAL_DESIGN.md",
+    "/osmviews.tiff",
+    "/osmviews.json",
+]
+
+[dependencies]
+memmap2 = "0.9"
+miniz_oxide = "0.8"

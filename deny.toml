@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Sascha Brawer <sascha@brawer.ch>
+# SPDX-License-Identifier: MIT
+#
+# Configuration for cargo-deny (https://embarkstudios.github.io/cargo-deny/).
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+# Every current dependency offers "MIT OR ...", so MIT alone is enough; Apache-2.0
+# is included as the other permissive license our dependency tree offers.
+allow = ["MIT", "Apache-2.0", "0BSD", "Zlib"]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

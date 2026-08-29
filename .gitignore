@@ -1,0 +1,5 @@
+/target
+
+# The dataset for the ignored real-data test (see CONTRIBUTING.md).
+/osmviews.tiff
+/osmviews.json
