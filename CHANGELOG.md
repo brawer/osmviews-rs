@@ -18,6 +18,8 @@ the full per-release list of merged pull requests.
 
 ### Changed
 
+- Minimum `miniz_oxide` is now 0.9 (was 0.8). No effect on this crate’s API or
+  MSRV.
 - Documentation only: added crates.io / docs.rs / CI / OpenSSF Scorecard badges
   and a sponsoring section to the README.
 
