@@ -32,6 +32,14 @@ println!("Zürich, Altstetten:  {:.3}", osmviews.rank(  8.4889,  47.3915));
 println!("Ushuaia:             {:.3}", osmviews.rank(-68.3030, -54.8019));
 ```
 
+```text
+Tokyo, Shibuya:      0.692
+Zürich, Altstetten:  0.657
+Ushuaia:             0.556
+```
+
+(the exact values shift a little each week as the dataset is regenerated)
+
 The crate does **not** download anything. Fetch the dataset (~594 MB, regenerated
 weekly) from `osmviews::DOWNLOAD_URL` however you like, then pass the path to
 `OsmViews::open`.
@@ -41,6 +49,15 @@ can be shared across threads. Decoded tiles are kept in a small LRU cache
 (configurable via `open_with_cache_capacity`), so queries clustered in one region
 stay fast. `metrics()` returns counters (cache hit rate, decode time, …) worth
 logging at the end of a long run.
+
+## Performance
+
+Rough numbers on an Apple M5 (from `tests/bench.rs`): `rank()` returns in ~40 ns
+when the tile is already cached and ~70 µs on a miss that has to read and inflate
+one. Each decoded tile is 256 KiB; the default LRU holds 64 of them (~16 MiB),
+and the GeoTIFF is memory-mapped rather than read onto the heap. For bulk
+lookups, submit points in roughly spatial order (e.g. sorted by tile or by
+S2 cell ID) so neighbouring queries reuse cached tiles.
 
 ## Minimal dependencies
 
