@@ -16,6 +16,13 @@ the full per-release list of merged pull requests.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-30
+
+### Changed
+
+- Documentation only: shorter README usage example, and a Performance section
+  with rough timings and a spatial-ordering tip.
+
 ## [0.1.1] - 2026-08-29
 
 ### Changed
@@ -41,6 +48,7 @@ Initial release.
   evictions, and other diagnostics for long-running jobs.
 - `DOWNLOAD_URL` — the published location of the dataset.
 
-[Unreleased]: https://github.com/brawer/osmviews-rs/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/brawer/osmviews-rs/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/brawer/osmviews-rs/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/brawer/osmviews-rs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/brawer/osmviews-rs/releases/tag/v0.1.0
