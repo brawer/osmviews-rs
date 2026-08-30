@@ -25,20 +25,14 @@ use osmviews::OsmViews;
 
 let osmviews = OsmViews::open("osmviews.tiff").unwrap();
 
-// rank() returns a value from 0.0 (nobody looks here) to 1.0 (one of the
-// most-viewed places on the planet). Coordinates are WGS84 degrees, lon then lat.
-println!("Tokyo, Shibuya:      {:.3}", osmviews.rank(139.7013,  35.6586));
-println!("Zürich, Altstetten:  {:.3}", osmviews.rank(  8.4889,  47.3915));
-println!("Ushuaia:             {:.3}", osmviews.rank(-68.3030, -54.8019));
+// rank() is 0.0 (nobody looks here) to 1.0 (one of the most-viewed places on
+// Earth). Coordinates are WGS84 degrees, lon then lat; values drift weekly.
+let shibuya    = osmviews.rank(139.7013,  35.6586); // Tokyo, Shibuya     ~0.69
+let altstetten = osmviews.rank(  8.4889,  47.3915); // Zürich, Altstetten ~0.66
+let ushuaia    = osmviews.rank(-68.3030, -54.8019); // Ushuaia            ~0.56
+let sahara     = osmviews.rank( 13.0000,  23.0000); // Sahara             ~0.00
+assert!(shibuya > altstetten && altstetten > ushuaia && ushuaia > sahara);
 ```
-
-```text
-Tokyo, Shibuya:      0.692
-Zürich, Altstetten:  0.657
-Ushuaia:             0.556
-```
-
-(the exact values shift a little each week as the dataset is regenerated)
 
 The crate does **not** download anything. Fetch the dataset (~594 MB, regenerated
 weekly) from `osmviews::DOWNLOAD_URL` however you like, then pass the path to
