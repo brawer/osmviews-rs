@@ -10,10 +10,14 @@ name: Conventional Commits
 # pull_request_target (not pull_request) so it also runs on PRs from forks: it
 # only reads the PR title from the base repo's config and never checks out or
 # runs fork code.
+#
+# `synchronize` is included so the "validate PR title" check re-attaches to each
+# new head commit; without it a push after the first run leaves the required
+# check pinned to a stale SHA and the PR can't merge.
 
 on:
   pull_request_target:
-    types: [opened, edited, reopened]
+    types: [opened, edited, reopened, synchronize]
 
 permissions: {}
 
