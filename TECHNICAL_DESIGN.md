@@ -111,5 +111,10 @@ Supply-chain posture is deliberately small:
   packaged `.crate`. See `RELEASING.md`.
 - **One `unsafe` block**, the `Mmap::map` call, with its safety contract
   documented at the call site and on `OsmViews::open`.
-- All header parsing is bounds-checked, and a corrupt file is rejected at
-  `open()` so that `rank()` cannot panic on bad data.
+- All header parsing is bounds-checked, and a corrupt header is rejected at
+  `open()` so that `rank()` cannot panic on bad data. A tile whose data is
+  malformed (bad compression stream, wrong decompressed length) is treated as
+  empty by that one `rank()` call rather than failing the whole file. Tile
+  decompression is capped at one tile's worth of output and the stored blob size
+  is bounded at parse time, so a zip-bomb tile cannot drive an unbounded
+  allocation.

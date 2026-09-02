@@ -156,7 +156,10 @@ impl OsmViews {
 
     fn decode(&self, raw: &[u8]) -> Option<Box<[f32]>> {
         let bytes = if self.header.compression == 8 {
-            match miniz_oxide::inflate::decompress_to_vec_zlib(raw) {
+            // Cap the output at one tile. `raw` is a zero-copy slice of the mmap,
+            // so a crafted blob can be a few KB yet inflate to gigabytes; the
+            // `bytes.len()` check below runs too late to stop that allocation.
+            match miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(raw, TILE_BYTES + 1) {
                 Ok(v) => v,
                 Err(_) => return None,
             }

@@ -9,7 +9,7 @@ mod common;
 use std::sync::Arc;
 use std::time::Duration;
 
-use common::{TILE_OFFSETS_POS, TempTiff, build_tiff};
+use common::{TILE_BYTES, TILE_OFFSETS_POS, TempTiff, build_tiff, build_tiff_single_blob};
 use osmviews::{Error, OsmViews};
 
 // Points that land in a known grid tile of a `build_tiff` raster (size 512, two
@@ -149,6 +149,43 @@ fn rejects_bigtiff_version() {
 fn rejects_truncated_file() {
     let bytes = build_tiff(8, [1.0, 2.0, 3.0, 4.0], 10.0);
     let fixture = TempTiff::new(&bytes[..bytes.len() / 2]);
+    assert!(matches!(
+        OsmViews::open(&fixture.path),
+        Err(Error::Format(_))
+    ));
+}
+
+#[test]
+fn zip_bomb_tile_is_treated_as_empty_not_inflated() {
+    // A tiny zlib stream that inflates to 4 MiB — 16× a tile. The stored blob is
+    // a few KB (well under the parse-time cap), so `open()` accepts the file;
+    // the danger is `rank()` inflating it in full.
+    let bomb = miniz_oxide::deflate::compress_to_vec_zlib(&vec![0u8; TILE_BYTES * 16], 9);
+    assert!(
+        bomb.len() < TILE_BYTES,
+        "the point of the test is a small blob; got {} bytes",
+        bomb.len()
+    );
+
+    let fixture = TempTiff::new(&build_tiff_single_blob(8, &bomb, 10.0));
+    let osmviews = OsmViews::open(&fixture.path).unwrap();
+
+    // The tile decodes to more than one tile's worth of data, so it is rejected
+    // and the query falls back to 0.0 rather than allocating gigabytes.
+    assert_eq!(osmviews.rank(IN_TILE_TOP_LEFT.0, IN_TILE_TOP_LEFT.1), 0.0);
+    assert_eq!(
+        osmviews.rank(IN_TILE_BOTTOM_RIGHT.0, IN_TILE_BOTTOM_RIGHT.1),
+        0.0
+    );
+    assert_eq!(osmviews.metrics().tiles_cached, 0);
+}
+
+#[test]
+fn rejects_tile_blob_larger_than_a_tile_could_compress_to() {
+    // Stored size alone is implausible for a 256 KiB tile; rejected at parse
+    // time, before the uncompressed path would `to_vec()` it.
+    let oversized = vec![0u8; TILE_BYTES + 8192];
+    let fixture = TempTiff::new(&build_tiff_single_blob(1, &oversized, 10.0));
     assert!(matches!(
         OsmViews::open(&fixture.path),
         Err(Error::Format(_))

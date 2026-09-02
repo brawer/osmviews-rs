@@ -41,6 +41,16 @@ const TYPE_DOUBLE: u16 = 12;
 
 const TILE_SIDE: u32 = 256;
 
+/// A decoded tile is exactly 256×256 32-bit floats = 256 KiB.
+const TILE_BYTES: usize = (TILE_SIDE as usize) * (TILE_SIDE as usize) * 4;
+
+/// Upper bound on a tile's *stored* (possibly compressed) size. A DEFLATE stream
+/// cannot beat its input by much even in the incompressible worst case — stored
+/// blocks add ~5 bytes per 64 KiB plus the zlib wrapper — so a larger blob is
+/// malformed. Rejecting it here keeps every allocation in the decode path
+/// bounded to one tile.
+const MAX_TILE_BLOB: usize = TILE_BYTES + 4096;
+
 /// Everything `rank()` needs from the file header.
 pub(crate) struct Header {
     /// Raster width in pixels (equal to the height).
@@ -279,6 +289,9 @@ pub(crate) fn parse(data: &[u8]) -> Result<Header, Error> {
         let len = tile_byte_counts.get(data, i) as usize;
         if len == 0 || off < 8 {
             return Err(err("invalid tile entry"));
+        }
+        if len > MAX_TILE_BLOB {
+            return Err(err("tile blob is implausibly large"));
         }
         if off.checked_add(len).is_none_or(|end| end > data.len()) {
             return Err(err("tile data extends past end of file"));
