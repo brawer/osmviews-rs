@@ -13,6 +13,13 @@ Conventional Commit history. Versioning follows
 the **minor** version may be breaking — see
 [RELEASING.md](RELEASING.md#choosing-the-version-number).
 
+## [0.1.3](https://github.com/brawer/osmviews-rs/compare/v0.1.2...v0.1.3) (2026-09-02)
+
+
+### 🐞 Fixes
+
+* bound tile decompression to one tile's worth of output ([#17](https://github.com/brawer/osmviews-rs/issues/17)) ([ecddf1a](https://github.com/brawer/osmviews-rs/commit/ecddf1a1ef3310add0b1c1e762bf506b4d3a44d6))
+
 ## [0.1.2](https://github.com/brawer/osmviews-rs/compare/v0.1.1...v0.1.2) (2026-08-30)
 
 ### Changed
