@@ -5,25 +5,22 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
-Notable changes to the `osmviews` crate. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versioning follows
-[Semantic Versioning](https://semver.org) — see
-[RELEASING.md](RELEASING.md#choosing-the-version-number) for how the `0.x`
-version is chosen.
+All notable changes to the `osmviews` crate are recorded here. From v0.1.3 on
+this file is maintained by
+[release-please](https://github.com/googleapis/release-please) from the
+Conventional Commit history. Versioning follows
+[Semantic Versioning](https://semver.org); while the crate is pre-1.0 a bump of
+the **minor** version may be breaking — see
+[RELEASING.md](RELEASING.md#choosing-the-version-number).
 
-The [GitHub releases page](https://github.com/brawer/osmviews-rs/releases) has
-the full per-release list of merged pull requests.
-
-## [Unreleased]
-
-## [0.1.2] - 2026-08-30
+## [0.1.2](https://github.com/brawer/osmviews-rs/compare/v0.1.1...v0.1.2) (2026-08-30)
 
 ### Changed
 
 - Documentation only: shorter README usage example, and a Performance section
   with rough timings and a spatial-ordering tip.
 
-## [0.1.1] - 2026-08-29
+## [0.1.1](https://github.com/brawer/osmviews-rs/compare/v0.1.0...v0.1.1) (2026-08-29)
 
 ### Changed
 
@@ -32,7 +29,7 @@ the full per-release list of merged pull requests.
 - Documentation only: added crates.io / docs.rs / CI / OpenSSF Scorecard badges
   and a sponsoring section to the README.
 
-## [0.1.0] - 2026-08-29
+## [0.1.0](https://github.com/brawer/osmviews-rs/releases/tag/v0.1.0) (2026-08-29)
 
 Initial release.
 
@@ -47,8 +44,3 @@ Initial release.
 - `OsmViews::metrics()` and the `Metrics` type — cache hit rate, decode time,
   evictions, and other diagnostics for long-running jobs.
 - `DOWNLOAD_URL` — the published location of the dataset.
-
-[Unreleased]: https://github.com/brawer/osmviews-rs/compare/v0.1.2...HEAD
-[0.1.2]: https://github.com/brawer/osmviews-rs/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/brawer/osmviews-rs/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/brawer/osmviews-rs/releases/tag/v0.1.0
