@@ -24,6 +24,10 @@ const TYPE_FLOAT: u16 = 11;
 
 const TILE: usize = 256 * 256;
 
+/// A decoded tile is exactly `TILE` 32-bit floats = 256 KiB. Matches
+/// `tiff::TILE_BYTES`.
+pub const TILE_BYTES: usize = TILE * 4;
+
 fn ifd_entry(tag: u16, typ: u16, count: u32, value: [u8; 4]) -> [u8; 12] {
     let mut e = [0u8; 12];
     e[0..2].copy_from_slice(&tag.to_le_bytes());
@@ -79,6 +83,38 @@ pub fn build_tiff(compression: u16, tile_values: [f32; 4], max_value: f32) -> Ve
     let tile_offsets: [u32; 4] = std::array::from_fn(|g| blob_pos[grid_to_blob[g]]);
     let tile_byte_counts: [u32; 4] = std::array::from_fn(|g| blobs[grid_to_blob[g]].len() as u32);
 
+    let blob_refs: Vec<&[u8]> = blobs.iter().map(Vec::as_slice).collect();
+    assemble(
+        compression,
+        max_value,
+        tile_offsets,
+        tile_byte_counts,
+        &blob_refs,
+    )
+}
+
+/// Builds a [`build_tiff`]-shaped raster whose four grid tiles all point at one
+/// caller-supplied stored blob. Lets a test hand the decode path a tile it would
+/// never compress itself — an over-large blob, or a small zlib stream that
+/// inflates past one tile.
+pub fn build_tiff_single_blob(compression: u16, blob: &[u8], max_value: f32) -> Vec<u8> {
+    let pos = (TILE_BYTE_COUNTS_POS + 16) as u32;
+    assemble(
+        compression,
+        max_value,
+        [pos; 4],
+        [blob.len() as u32; 4],
+        &[blob],
+    )
+}
+
+fn assemble(
+    compression: u16,
+    max_value: f32,
+    tile_offsets: [u32; 4],
+    tile_byte_counts: [u32; 4],
+    blobs: &[&[u8]],
+) -> Vec<u8> {
     let entries = [
         ifd_entry(256, TYPE_LONG, 1, 512u32.to_le_bytes()),
         ifd_entry(257, TYPE_LONG, 1, 512u32.to_le_bytes()),
@@ -100,7 +136,7 @@ pub fn build_tiff(compression: u16, tile_values: [f32; 4], max_value: f32) -> Ve
     ];
     assert_eq!(entries.len(), ENTRY_COUNT);
 
-    let mut buf = Vec::with_capacity(cursor);
+    let mut buf = Vec::new();
     buf.extend_from_slice(b"II");
     buf.extend_from_slice(&42u16.to_le_bytes());
     buf.extend_from_slice(&8u32.to_le_bytes());
@@ -116,10 +152,9 @@ pub fn build_tiff(compression: u16, tile_values: [f32; 4], max_value: f32) -> Ve
     for v in tile_byte_counts {
         buf.extend_from_slice(&v.to_le_bytes());
     }
-    for blob in &blobs {
+    for blob in blobs {
         buf.extend_from_slice(blob);
     }
-    assert_eq!(buf.len(), cursor);
     buf
 }
 
