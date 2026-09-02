@@ -8,6 +8,7 @@ SPDX-License-Identifier: MIT
 [![crates.io](https://img.shields.io/crates/v/osmviews.svg)](https://crates.io/crates/osmviews)
 [![docs.rs](https://img.shields.io/docsrs/osmviews)](https://docs.rs/osmviews)
 [![CI](https://github.com/brawer/osmviews-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/brawer/osmviews-rs/actions/workflows/ci.yml)
+[![REUSE status](https://api.reuse.software/badge/github.com/brawer/osmviews-rs)](https://api.reuse.software/info/github.com/brawer/osmviews-rs)
 
 Rust client for [OSMViews](https://osmviews.toolforge.org), a world-wide ranking
 of geographic locations by how much they are looked at on OpenStreetMap-based
@@ -78,3 +79,8 @@ maintenance and future development via
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+The repository is [REUSE](https://reuse.software) compliant: every file declares
+its copyright and licensing, in an SPDX header or via [`REUSE.toml`](REUSE.toml).
+The sole exception to MIT is `CODE_OF_CONDUCT.md`, adapted from the Contributor
+Covenant 3.0 (CC-BY-SA-4.0).

@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Sascha Brawer <sascha@brawer.ch>
+# SPDX-License-Identifier: MIT
+
+version = 1
+
+# The root LICENSE file duplicates LICENSES/MIT.txt so that GitHub, whose
+# license detection does not always look in LICENSES/, still recognises it.
+[[annotations]]
+path = "LICENSE"
+SPDX-FileCopyrightText = "2026 Sascha Brawer <sascha@brawer.ch>"
+SPDX-License-Identifier = "MIT"
+
+# Machine-generated files that cannot carry an SPDX header comment: JSON has no
+# comment syntax, and Cargo.lock plus the release-please manifest are rewritten
+# by tooling.
+[[annotations]]
+path = [
+    "Cargo.lock",
+    ".release-please-manifest.json",
+    "release-please-config.json",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Sascha Brawer <sascha@brawer.ch>"
+SPDX-License-Identifier = "MIT"
+
+# Adapted verbatim from the Contributor Covenant, version 3.0, which is
+# stewarded by the Organization for Ethical Source and licensed CC-BY-SA-4.0.
+# https://www.contributor-covenant.org/version/3/0/
+[[annotations]]
+path = "CODE_OF_CONDUCT.md"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "The Organization for Ethical Source"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
