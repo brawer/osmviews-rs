@@ -2,18 +2,24 @@
 # SPDX-License-Identifier: MIT
 #
 # Publishes a tagged release to crates.io via Trusted Publishing (OIDC, no
-# stored token) and attaches SLSA build-provenance for the packaged .crate.
+# stored token) and generates SLSA build-provenance for the packaged .crate
+# (kept in the repo's attestation store, not attached to the release).
 #
 # One-time setup is required on crates.io and GitHub — see RELEASING.md.
 #
-# To cut a release: bump `version` in Cargo.toml, commit, then
-#   git tag v0.1.2 && git push remo v0.1.2
+# release-please pushes the vX.Y.Z tag as a GitHub App (see release-please.yml)
+# and creates the GitHub release, so `push: tags` launches this automatically
+# after a release PR is merged. The `workflow_dispatch` trigger is a fallback for
+# re-running a release:
+#
+#     gh workflow run release.yml --ref vX.Y.Z
 
 name: Release
 
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
 
 permissions: {}
 
@@ -56,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
-      contents: write # create the GitHub release
+      contents: read # checkout
       id-token: write # OIDC for crates.io Trusted Publishing + provenance
       attestations: write # store the build-provenance attestation
     steps:
@@ -85,14 +91,3 @@ jobs:
         run: cargo publish --locked
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-
-      - name: Create the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "$GITHUB_REF_NAME"
-          --repo "$GITHUB_REPOSITORY"
-          --title "$GITHUB_REF_NAME"
-          --generate-notes
-          --verify-tag
-          "${{ steps.crate.outputs.path }}"
