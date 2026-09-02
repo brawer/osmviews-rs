@@ -13,6 +13,13 @@ Conventional Commit history. Versioning follows
 the **minor** version may be breaking — see
 [RELEASING.md](RELEASING.md#choosing-the-version-number).
 
+## [0.1.3](https://github.com/brawer/osmviews-rs/compare/osmviews-v0.1.2...osmviews-v0.1.3) (2026-09-02)
+
+
+### 🆕 Features
+
+* initial OSMViews client ([4e3cdfd](https://github.com/brawer/osmviews-rs/commit/4e3cdfd82568de85235304666298ab1f4fc73357))
+
 ## [0.1.2](https://github.com/brawer/osmviews-rs/compare/v0.1.1...v0.1.2) (2026-08-30)
 
 ### Changed
