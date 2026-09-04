@@ -8,6 +8,7 @@ SPDX-License-Identifier: MIT
 [![crates.io](https://img.shields.io/crates/v/osmviews.svg)](https://crates.io/crates/osmviews)
 [![docs.rs](https://img.shields.io/docsrs/osmviews)](https://docs.rs/osmviews)
 [![CI](https://github.com/brawer/osmviews-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/brawer/osmviews-rs/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/brawer/osmviews-rs/badge)](https://scorecard.dev/viewer/?uri=github.com/brawer/osmviews-rs)
 [![REUSE status](https://api.reuse.software/badge/github.com/brawer/osmviews-rs)](https://api.reuse.software/info/github.com/brawer/osmviews-rs)
 
 Rust client for [OSMViews](https://osmviews.toolforge.org), a world-wide ranking
