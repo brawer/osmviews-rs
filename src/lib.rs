@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Sascha Brawer <sascha@brawer.ch>
 // SPDX-License-Identifier: MIT
 
-//! A client for [OSMViews](https://osmviews.toolforge.org), a world-wide ranking
+//! A client for [OSMViews](https://osmviews.brawer.ch), a world-wide ranking
 //! of geographic locations by how much they are looked at on OpenStreetMap-based
 //! maps.
 //!
@@ -19,9 +19,18 @@
 //! # Ok::<(), osmviews::Error>(())
 //! ```
 //!
-//! The crate does not download anything: fetch the raster from [`DOWNLOAD_URL`]
-//! (regenerated weekly, ~594 MB) however you like, then hand [`OsmViews::open`]
-//! the path.
+//! The crate does not download anything. The raster (~594 MB) is rebuilt weekly
+//! under a new dated file name, so there is no single download link. Instead:
+//!
+//! 1. Fetch the small [data package](https://datapackage.org) descriptor at
+//!    [`DATAPACKAGE_URL`].
+//! 2. Pick the entry in its `resources` array whose `name` is `osmviews`.
+//! 3. Resolve that entry's `path` relative to [`DATAPACKAGE_URL`].
+//! 4. Download the file however you like.
+//! 5. Check it against the entry's `hash`, which has the form `sha256:<hex>`.
+//!
+//! Then hand [`OsmViews::open`] the path. The descriptor's `version` is the
+//! date of the build. The README has a short example using `ureq` and `sha2`.
 //!
 //! [`OsmViews`] is [`Send`] + [`Sync`] and every query takes `&self`, so one
 //! instance can be shared across threads.
@@ -41,12 +50,25 @@ use memmap2::Mmap;
 use cache::Cache;
 use tiff::{Header, TileOffset};
 
-/// Where the OSMViews raster is published.
+/// Where the OSMViews [data package](https://datapackage.org) descriptor is
+/// published.
 ///
-/// This crate never downloads anything itself, but exposing the URL as a
+/// The descriptor is a small JSON file naming the current raster, its size in
+/// bytes and its SHA-256; see the [crate documentation](crate) for how to use
+/// it. This crate never downloads anything itself, but exposing the URL as a
 /// constant means a change of hosting is a version bump here rather than a
-/// string to hunt down in every caller. The file behind it is regenerated
-/// weekly and is roughly 594 MB.
+/// string to hunt down in every caller.
+pub const DATAPACKAGE_URL: &str = "https://osmviews.brawer.ch/data/datapackage.json";
+
+/// Where the OSMViews raster used to be published.
+///
+/// Until 2026-12-10, this URL redirects to the latest weekly raster. After
+/// that it stops working. Fetch the descriptor at [`DATAPACKAGE_URL`] instead
+/// to find the current file. This constant will be removed in 0.2.0.
+#[deprecated(
+    since = "0.1.4",
+    note = "the URL stops working after 2026-12-10; fetch the data package at DATAPACKAGE_URL to find the current raster"
+)]
 pub const DOWNLOAD_URL: &str = "https://osmviews.toolforge.org/download/osmviews.tiff";
 
 /// Decoded-tile cache capacity used by [`OsmViews::open`], in tiles. Each tile is
@@ -274,6 +296,13 @@ mod tests {
     }
 
     #[test]
+    fn datapackage_url_points_at_a_descriptor() {
+        assert!(DATAPACKAGE_URL.starts_with("https://"));
+        assert!(DATAPACKAGE_URL.ends_with("/datapackage.json"));
+    }
+
+    #[test]
+    #[allow(deprecated)]
     fn download_url_points_at_a_tiff() {
         assert!(DOWNLOAD_URL.starts_with("https://"));
         assert!(DOWNLOAD_URL.ends_with(".tiff"));

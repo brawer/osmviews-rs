@@ -11,7 +11,7 @@ SPDX-License-Identifier: MIT
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/brawer/osmviews-rs/badge)](https://scorecard.dev/viewer/?uri=github.com/brawer/osmviews-rs)
 [![REUSE status](https://api.reuse.software/badge/github.com/brawer/osmviews-rs)](https://api.reuse.software/info/github.com/brawer/osmviews-rs)
 
-Rust client for [OSMViews](https://osmviews.toolforge.org), a world-wide ranking
+Rust client for [OSMViews](https://osmviews.brawer.ch), a world-wide ranking
 of geographic locations by how much they are looked at on OpenStreetMap-based
 maps. See the [main project](https://github.com/brawer/osmviews) for background.
 
@@ -35,9 +35,56 @@ let sahara     = osmviews.rank( 13.0000,  23.0000); // Sahara             ~0.00
 assert!(shibuya > altstetten && altstetten > ushuaia && ushuaia > sahara);
 ```
 
-The crate does **not** download anything. Fetch the dataset (~594 MB, regenerated
-weekly) from `osmviews::DOWNLOAD_URL` however you like, then pass the path to
-`OsmViews::open`.
+The crate does **not** download anything. The dataset (~594 MB) is rebuilt
+weekly under a new dated file name, so there is no single download link. Instead,
+fetch the small [data package](https://datapackage.org) descriptor at
+`osmviews::DATAPACKAGE_URL`. It names the current file and its SHA-256. Download
+that file however you like, then pass the path to `OsmViews::open`. For example,
+with [`ureq`](https://crates.io/crates/ureq) (feature `json`),
+[`serde_json`](https://crates.io/crates/serde_json) and
+[`sha2`](https://crates.io/crates/sha2):
+
+```rust
+use std::fs::File;
+use std::io::{Read, Write};
+
+use sha2::{Digest, Sha256};
+
+let package: serde_json::Value = ureq::get(osmviews::DATAPACKAGE_URL)
+    .call()?
+    .body_mut()
+    .read_json()?;
+let raster = package["resources"]
+    .as_array()
+    .and_then(|r| r.iter().find(|r| r["name"] == "osmviews"))
+    .ok_or("no osmviews resource in data package")?;
+let (base, _) = osmviews::DATAPACKAGE_URL.rsplit_once('/').unwrap();
+let url = format!("{base}/{}", raster["path"].as_str().ok_or("no path")?);
+
+// Download and hash in one pass.
+let mut body = ureq::get(&url).call()?.into_body().into_reader();
+let mut file = File::create("osmviews.tiff")?;
+let mut hasher = Sha256::new();
+let mut buf = vec![0; 1 << 16];
+loop {
+    let n = body.read(&mut buf)?;
+    if n == 0 {
+        break;
+    }
+    hasher.update(&buf[..n]);
+    file.write_all(&buf[..n])?;
+}
+let hex: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
+if raster["hash"] != format!("sha256:{hex}") {
+    return Err(format!("checksum mismatch for {url}").into());
+}
+```
+
+The descriptor’s `version` is the date of the build, so you can tell which
+week’s views you have.
+
+`osmviews::DOWNLOAD_URL` is deprecated. The link it names stops working after
+2026-12-10, and the constant will be removed in 0.2.0.
 
 `OsmViews` is `Send + Sync` and every query takes `&self`, so a single instance
 can be shared across threads. Decoded tiles are kept in a small LRU cache
