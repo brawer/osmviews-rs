@@ -18,7 +18,7 @@ large dependency tree.
 
 ## Background
 
-[OSMViews](https://osmviews.toolforge.org) is a weekly pipeline
+[OSMViews](https://osmviews.brawer.ch) is a weekly pipeline
 ([brawer/osmviews](https://github.com/brawer/osmviews)) that aggregates roughly a
 year of OpenStreetMap map-tile access logs into a single Cloud-Optimized GeoTIFF.
 Each pixel holds a 32-bit float: the density of map views for that patch of the

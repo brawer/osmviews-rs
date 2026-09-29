@@ -48,10 +48,37 @@ jobs:
 
       - run: cargo test --locked --all-features
 
+      - name: Resolve the current OSMViews dataset
+        id: dataset
+        run: | # keep in sync with osmviews::DATAPACKAGE_URL
+          curl -fsSL -o datapackage.json \
+            --connect-timeout 60 --retry 5 --retry-delay 15 --retry-all-errors \
+            https://osmviews.brawer.ch/data/datapackage.json
+          raster='.resources[] | select(.name == "osmviews")'
+          path=$(jq -er "$raster | .path" datapackage.json)
+          hash=$(jq -er "$raster | .hash" datapackage.json)
+          [[ "$path" =~ ^osmviews-[0-9]{8}\.tiff$ ]] || { echo "unexpected path: $path"; exit 1; }
+          [[ "$hash" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "unexpected hash: $hash"; exit 1; }
+          echo "$path  $hash"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          echo "sha256=${hash#sha256:}" >> "$GITHUB_OUTPUT"
+
       - name: Download the OSMViews dataset
-        run: | # keep in sync with osmviews::DOWNLOAD_URL
-          curl -fSL --retry 3 --retry-all-errors \
-            -o osmviews.tiff https://osmviews.toolforge.org/download/osmviews.tiff
+        env:
+          RASTER_PATH: ${{ steps.dataset.outputs.path }}
+        run: |
+          # Retry generously, but give up on a connection that stalls below
+          # 1 KiB/s for 5 minutes so a dead transfer fails in minutes instead of
+          # hanging for hours.
+          curl -fSL -o osmviews.tiff \
+            --connect-timeout 60 --retry 5 --retry-delay 15 --retry-all-errors \
+            --speed-limit 1024 --speed-time 300 \
+            "https://osmviews.brawer.ch/data/$RASTER_PATH"
+
+      - name: Verify the dataset against the data package
+        env:
+          RASTER_SHA256: ${{ steps.dataset.outputs.sha256 }}
+        run: echo "$RASTER_SHA256  osmviews.tiff" | sha256sum --check --strict
 
       - name: Run the ignored tests against the real dataset
         run: cargo test --release --locked --all-features -- --ignored

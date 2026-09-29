@@ -29,7 +29,9 @@ test in `tests/online.rs` runs against the real ~594 MB dataset and is `#[ignore
 by default. To run it, fetch the file and point the test at it:
 
 ```sh
-curl -L -o osmviews.tiff https://osmviews.toolforge.org/download/osmviews.tiff
+path=$(curl -fsSL https://osmviews.brawer.ch/data/datapackage.json \
+  | jq -er '.resources[] | select(.name == "osmviews") | .path')
+curl -fL -o osmviews.tiff "https://osmviews.brawer.ch/data/$path"
 OSMVIEWS_TIFF="$PWD/osmviews.tiff" cargo test -- --ignored
 ```
 

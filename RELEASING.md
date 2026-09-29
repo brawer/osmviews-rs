@@ -28,7 +28,8 @@ Releases are automated with
 4. The tag push launches `release.yml` automatically. (To re-run it:
    `gh workflow run release.yml --ref vX.Y.Z`.) It then:
    - runs the full test suite, including the otherwise-`#[ignore]`d tests,
-     against the freshly downloaded dataset;
+     against the freshly downloaded dataset, after checking its SHA-256
+     against the data package descriptor;
    - checks the tag matches `Cargo.toml`;
    - packages the crate with `cargo package --locked`;
    - attests the `.crate`’s **SLSA build provenance** with
@@ -56,7 +57,7 @@ next real release. Use `Release-As:` if you need to ship one of those alone.
 
 The public API is everything reachable from the crate root: `OsmViews` and its
 methods, `Metrics` and its fields, the `Error` enum and its variants,
-`DOWNLOAD_URL`, and the documented behaviour of `rank`.
+`DATAPACKAGE_URL`, the deprecated `DOWNLOAD_URL` (to be removed in 0.2.0), and the documented behaviour of `rank`.
 
 | Bump                  | When                                                                                                                                                                                                                                            |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
