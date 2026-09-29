@@ -13,6 +13,13 @@ Conventional Commit history. Versioning follows
 the **minor** version may be breaking — see
 [RELEASING.md](RELEASING.md#choosing-the-version-number).
 
+## [0.1.4](https://github.com/brawer/osmviews-rs/compare/v0.1.3...v0.1.4) (2026-09-29)
+
+
+### 🆕 Features
+
+* add DATAPACKAGE_URL and deprecate DOWNLOAD_URL ([#23](https://github.com/brawer/osmviews-rs/issues/23)) ([cb4c632](https://github.com/brawer/osmviews-rs/commit/cb4c632803ed94ce69d80dbe494fe63c9fb32e03)), closes [#22](https://github.com/brawer/osmviews-rs/issues/22)
+
 ## [0.1.3](https://github.com/brawer/osmviews-rs/compare/v0.1.2...v0.1.3) (2026-09-02)
 
 
