@@ -33,7 +33,8 @@ OSMViews is one of several signals feeding that ranking.
 
 A [Python client](https://github.com/brawer/osmviews-py) already exists. This
 crate is a fresh Rust design rather than a port; the two share only the data
-format.
+format. A [Go client](https://github.com/brawer/osmviews-go), likewise its
+own design, also exists.
 
 ## Design
 
