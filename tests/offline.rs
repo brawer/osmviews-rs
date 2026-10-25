@@ -242,12 +242,19 @@ fn assert_close(got: f64, want: f64) {
     assert!((got - want).abs() < 1e-9, "got {got}, want {want}");
 }
 
+/// Views (up to a constant) held by `pixels` pixels spread evenly over the
+/// histogram bucket `[k/16, (k+1)/16)` of `ln(1 + density)`.
+fn bucket_views(k: u32, pixels: f64) -> f64 {
+    let v = |x: f64| x.exp_m1() - x;
+    let (a, b) = (f64::from(k) / 16.0, f64::from(k + 1) / 16.0);
+    pixels * (v(b) - v(a)) * 16.0
+}
+
 #[test]
 fn quantiles_come_from_the_embedded_histogram() {
     // Buckets: 0.0 -> 0, 0.0625 -> 1 (on its lower edge), 0.1249 -> 1 (just
     // under the next edge), 0.5 -> 8 (the top bucket). So bucket 0 holds one
-    // tile, bucket 1 two and bucket 8 one; the non-zero population is three
-    // tiles.
+    // tile, bucket 1 two and bucket 8 one.
     let fixture = TempTiff::new(&build_tiff(8, [0.0, 0.0625, 0.1249, 0.5], 0.5));
     let osmviews = OsmViews::open(&fixture.path).unwrap();
     let (tl, tr, bl, br) = (
@@ -256,10 +263,14 @@ fn quantiles_come_from_the_embedded_histogram() {
         IN_TILE_BOTTOM_LEFT,
         IN_TILE_BOTTOM_RIGHT,
     );
+    // Bucket 8 has half the pixels of bucket 1 but far more views, so bucket
+    // 1 ends under a quarter of the way up, where pixels alone would put it
+    // at two thirds.
+    let (w1, w8) = (bucket_views(1, 2.0), bucket_views(8, 1.0));
+    let split = w1 / (w1 + w8);
+    assert!(split < 0.25, "{split}");
 
-    assert_close(osmviews.zero_fraction(), 0.25);
-
-    // Bucket 0 is outside the reference population.
+    // Bucket 0 carries no views.
     assert_eq!(osmviews.quantile(tl.0, tl.1), 0.0..0.0);
     assert_eq!(osmviews.quantile_interpolated(tl.0, tl.1), 0.0);
 
@@ -267,17 +278,19 @@ fn quantiles_come_from_the_embedded_histogram() {
     for (lon, lat) in [tr, bl] {
         let q = osmviews.quantile(lon, lat);
         assert_close(q.start, 0.0);
-        assert_close(q.end, 2.0 / 3.0);
+        assert_close(q.end, split);
     }
     assert_close(osmviews.quantile_interpolated(tr.0, tr.1), 0.0);
+    let v = |x: f64| x.exp_m1() - x;
+    let x = f64::from(0.1249f32);
     assert_close(
         osmviews.quantile_interpolated(bl.0, bl.1),
-        (f64::from(0.1249f32) * 16.0 - 1.0) * 2.0 / 3.0,
+        split * (v(x) - v(0.0625)) / (v(0.125) - v(0.0625)),
     );
 
     // The top bucket reaches 1.0.
     let q = osmviews.quantile(br.0, br.1);
-    assert_close(q.start, 2.0 / 3.0);
+    assert_close(q.start, split);
     assert_close(q.end, 1.0);
 
     // Out of range behaves like an unviewed pixel.
@@ -347,7 +360,8 @@ fn quantiles_rise_with_rank() {
         last = q;
     }
     // The maximum, 4.0, sits on the lower edge of the top bucket.
-    assert_close(last, 0.75);
+    assert_close(last, osmviews.rank_quantile(1.0).start);
+    assert!(last < 1.0);
 }
 
 #[test]

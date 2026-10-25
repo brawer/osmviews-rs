@@ -85,8 +85,13 @@ is an implementation detail and not part of the API contract.
 `GDAL_METADATA` tag (42112) as a GDAL Raster Attribute Table: linear buckets
 1/16 wide in `ln(1 + views/km²)`, with a pixel count each. `open` parses it
 with a small hand-written reader for exactly that XML shape (no XML crate) and
-precomputes the cumulative share of pixels per bucket, so `quantile()` is
-`rank()` plus an array lookup and `rank_quantile()` needs no tile at all. Files
+precomputes the cumulative share of views per bucket: each bucket's pixel count
+times its mean view density, taking values as uniform within the bucket, with
+bucket 0 left out. Weighting by views rather than pixels matters because most
+non-zero pixels sit at a tiny density (one bucket around 1 view/km² holds 69%
+of them), which would push every inhabited place into the top 0.02% of a pixel
+quantile. With that table, `quantile()` is `rank()` plus an array lookup and
+`rank_quantile()` needs no tile at all. Files
 without a usable histogram are rejected: the pipeline is ours and always writes
 one, and a made-up quantile would be worse than an error.
 

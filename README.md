@@ -37,11 +37,13 @@ assert!(shibuya > altstetten && altstetten > ushuaia && ushuaia > sahara);
 
 `rank()` has a unit (it is linear in `ln(1 + views/km²)`), so it can't be
 averaged with an unrelated signal. For that, `quantile(lon, lat)` returns the
-location's quantile range among the raster's pixels, read from the histogram
-that the GeoTIFF carries. `quantile_interpolated()` gives a single number, and
+share of all map views that happen at places viewed less than this one, read
+from the histogram that the GeoTIFF carries. It is a range, one histogram
+bucket wide; `quantile_interpolated()` gives a single number, and
 `rank_quantile()` / `rank_quantile_interpolated()` take a `rank()` value you
-already have. Pixels whose view density rounds to zero are left out of the
-reference population and return `0.0`; see the API docs for details.
+already have. The quantile is weighted by views rather than by map pixels,
+because most pixels have a tiny view density, and a pixel quantile would put
+every inhabited place above 0.9998.
 
 The crate does **not** download anything. The dataset (~594 MB) is rebuilt
 weekly under a new dated file name, so there is no single download link. Instead,
@@ -111,7 +113,7 @@ S2 cell ID) so neighbouring queries reuse cached tiles.
 
 `quantile()` costs the same as `rank()` plus a few nanoseconds, and
 `rank_quantile()` is a table lookup with no tile access: on a cloud VM where
-`rank()` took ~100 ns on a cached tile, `quantile()` took ~107 ns and
+`rank()` took ~105 ns on a cached tile, `quantile()` took ~110 ns and
 `rank_quantile()` ~12 ns.
 
 ## Minimal dependencies

@@ -93,10 +93,6 @@ fn quantiles_follow_ranks() {
     };
     let osmviews = OsmViews::open(&path).expect("open real dataset");
 
-    // Most of the planet is unviewed.
-    let zero = osmviews.zero_fraction();
-    assert!(zero > 0.5 && zero < 1.0, "zero_fraction = {zero}");
-
     // (name, lon, lat)
     let places = [
         ("Sahara", 13.0, 23.0),
@@ -144,8 +140,16 @@ fn quantiles_follow_ranks() {
     let altstetten = q(8.4889, 47.3915);
     let sahara = q(13.0, 23.0);
     assert!(
-        altstetten > 0.9 && altstetten > sahara + 0.5,
+        altstetten > sahara + 0.5,
         "expected Zürich Altstetten {altstetten} well above Sahara {sahara}"
+    );
+
+    // Views spread inhabited places out rather than piling them up near 1.0.
+    let ushuaia = q(-68.3030, -54.8019);
+    let trafalgar = q(-0.1281, 51.5080);
+    assert!(
+        ushuaia > 0.3 && ushuaia < 0.95 && trafalgar > ushuaia + 0.05,
+        "expected Ushuaia {ushuaia} mid-range and below Trafalgar Square {trafalgar}"
     );
 
     // A sweep over the whole rank scale never goes down.

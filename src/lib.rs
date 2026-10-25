@@ -17,7 +17,7 @@
 //! let outback        = osmviews.rank(139.3508, -25.8975);
 //! assert!(central_london > outback);
 //!
-//! // The share of (non-empty) map pixels viewed less than this location.
+//! // The share of map views at places viewed less than this location.
 //! let q = osmviews.quantile(-0.1276, 51.5072);
 //! assert!(q.start <= q.end && q.end <= 1.0);
 //! # Ok::<(), osmviews::Error>(())
@@ -148,30 +148,31 @@ impl OsmViews {
         self.scale(self.sample(lon, lat))
     }
 
-    /// Quantile range of the location at `lon`/`lat` among the raster's
-    /// pixels: the share of pixels in lower histogram buckets, up to the share
-    /// in lower-or-equal buckets. Both ends lie in `0.0..=1.0`.
+    /// Quantile range of the location at `lon`/`lat`, weighted by views: the
+    /// share of all map views that happen at places viewed less than this
+    /// one, as a range over the location's histogram bucket. Both ends lie in
+    /// `0.0..=1.0`.
     ///
     /// Unlike [`rank`](OsmViews::rank), a quantile has no unit, so it can be
     /// averaged with an unrelated signal (say, a popularity score that is
-    /// itself a quantile). The result is a range because every pixel in one
-    /// histogram bucket (1/16 wide in `ln(1 + views/km²)`) shares the same
-    /// quantile interval; take the midpoint, or use
+    /// itself a quantile). The result is a range because the histogram that
+    /// the GeoTIFF carries has buckets 1/16 wide in `ln(1 + views/km²)`, and
+    /// every pixel in a bucket shares one interval. Take the midpoint, or use
     /// [`quantile_interpolated`](OsmViews::quantile_interpolated) for a single
     /// number.
     ///
-    /// **Reference population.** Quantiles are taken among the pixels above
-    /// histogram bucket 0, the bucket that holds every pixel whose view density
-    /// rounds to zero. That bucket is most of the planet, so over all pixels
-    /// nearly every inhabited place would land in the top few percent. A
-    /// location in bucket 0 returns `0.0..0.0`. To get the quantile over all
-    /// pixels instead, use `z + (1.0 - z) * q` with
-    /// `z = `[`zero_fraction()`](OsmViews::zero_fraction).
+    /// **Why views, not pixels.** Most map pixels have a tiny but non-zero
+    /// view density, so a plain pixel quantile
+    /// puts every inhabited place above the 0.9998 quantile. Weighting each
+    /// pixel by its view density spreads those places out instead: on the
+    /// 2026-10-18 file, Ushuaia comes out around 0.74, Zürich Altstetten
+    /// around 0.84 and Trafalgar Square around 0.99. Pixels whose density
+    /// rounds to zero (histogram bucket 0) carry no weight and return
+    /// `0.0..0.0`.
     ///
-    /// **Pixels, not area.** The histogram counts Web Mercator pixels, which
-    /// cover less ground towards the poles. A quantile therefore reads as “the
-    /// share of map pixels viewed less than this”, with high latitudes
-    /// over-represented compared to their area.
+    /// **Map pixels, not ground area.** The weights sum view density over Web
+    /// Mercator pixels, which cover less ground towards the poles, so views at
+    /// high latitudes count for more than their ground area would give them.
     ///
     /// **Weekly drift.** Quantiles shift a little with each weekly file, like
     /// [`rank`](OsmViews::rank) does. Don't mix results from different files
@@ -183,9 +184,10 @@ impl OsmViews {
             .range(f64::from(self.sample(lon, lat)))
     }
 
-    /// Like [`quantile`](OsmViews::quantile), but a single number: the
-    /// cumulative pixel count interpolated linearly within the location's
-    /// histogram bucket. Always inside the range that `quantile` returns.
+    /// Like [`quantile`](OsmViews::quantile), but a single number: the share
+    /// of views below this location's exact value, taking pixel values as
+    /// spread evenly within its histogram bucket. Always inside the range that
+    /// `quantile` returns.
     #[must_use]
     pub fn quantile_interpolated(&self, lon: f64, lat: f64) -> f64 {
         self.header
@@ -209,14 +211,6 @@ impl OsmViews {
     #[must_use]
     pub fn rank_quantile_interpolated(&self, rank: f64) -> f64 {
         self.header.histogram.interpolate(self.unscale(rank))
-    }
-
-    /// Share of all pixels in histogram bucket 0, where the view density
-    /// rounds to zero. Most of the planet is in there, so this is close to
-    /// `1.0`. See [`quantile`](OsmViews::quantile) for how to use it.
-    #[must_use]
-    pub fn zero_fraction(&self) -> f64 {
-        self.header.histogram.zero_fraction()
     }
 
     /// The raw sample at `lon`/`lat`, or `0.0` if the location is out of range
