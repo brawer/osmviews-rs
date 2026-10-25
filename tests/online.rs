@@ -83,3 +83,77 @@ fn ranks_reflect_how_the_planet_is_viewed() {
     assert_eq!(m.out_of_range, 3); // the two poles + the NaN
     assert!(m.tiles_decoded >= 1);
 }
+
+#[test]
+#[ignore = "needs the ~594 MB osmviews.tiff (set OSMVIEWS_TIFF or drop it in the repo root)"]
+fn quantiles_follow_ranks() {
+    let Some(path) = dataset_path() else {
+        eprintln!("skipping: no OSMViews dataset (OSMVIEWS_TIFF unset, ./osmviews.tiff absent)");
+        return;
+    };
+    let osmviews = OsmViews::open(&path).expect("open real dataset");
+
+    // Most of the planet is unviewed.
+    let zero = osmviews.zero_fraction();
+    assert!(zero > 0.5 && zero < 1.0, "zero_fraction = {zero}");
+
+    // (name, lon, lat)
+    let places = [
+        ("Sahara", 13.0, 23.0),
+        ("remote S Pacific", -140.0, -30.0),
+        ("Birdsville", 139.3508, -25.8975),
+        ("Ushuaia", -68.3030, -54.8019),
+        ("Havering-atte-Bower", 0.1730, 51.6217),
+        ("Hackney", -0.0553, 51.5452),
+        ("Bern", 7.4474, 46.9480),
+        ("Zürich Altstetten", 8.4889, 47.3915),
+        ("Shibuya", 139.7013, 35.6586),
+        ("Trafalgar Square", -0.1281, 51.5080),
+    ];
+    let mut by_rank: Vec<_> = places
+        .iter()
+        .map(|&(name, lon, lat)| {
+            let rank = osmviews.rank(lon, lat);
+            let range = osmviews.quantile(lon, lat);
+            let point = osmviews.quantile_interpolated(lon, lat);
+            assert!(
+                range.start <= point && point <= range.end && range.end <= 1.0,
+                "{name}: {range:?} / {point}"
+            );
+            assert_eq!(osmviews.rank_quantile(rank), range, "{name}");
+            assert_eq!(osmviews.rank_quantile_interpolated(rank), point, "{name}");
+            (rank, range, point, name)
+        })
+        .collect();
+    by_rank.sort_by(|a, b| a.0.total_cmp(&b.0));
+    for pair in by_rank.windows(2) {
+        let (lo, hi) = (&pair[0], &pair[1]);
+        assert!(
+            lo.2 <= hi.2 && lo.1.start <= hi.1.start,
+            "{} (rank {}, q {}) vs {} (rank {}, q {})",
+            lo.3,
+            lo.0,
+            lo.2,
+            hi.3,
+            hi.0,
+            hi.2
+        );
+    }
+
+    let q = |lon, lat| osmviews.quantile_interpolated(lon, lat);
+    let altstetten = q(8.4889, 47.3915);
+    let sahara = q(13.0, 23.0);
+    assert!(
+        altstetten > 0.9 && altstetten > sahara + 0.5,
+        "expected Zürich Altstetten {altstetten} well above Sahara {sahara}"
+    );
+
+    // A sweep over the whole rank scale never goes down.
+    let mut last = 0.0;
+    for i in 0..=10_000 {
+        let q = osmviews.rank_quantile_interpolated(f64::from(i) / 10_000.0);
+        assert!(q >= last, "quantile drops at rank {i}/10000");
+        last = q;
+    }
+    assert!(last > 0.999, "top rank maps to quantile {last}");
+}

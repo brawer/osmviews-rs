@@ -16,6 +16,10 @@
 //! let central_london = osmviews.rank(-0.1276, 51.5072);
 //! let outback        = osmviews.rank(139.3508, -25.8975);
 //! assert!(central_london > outback);
+//!
+//! // The share of (non-empty) map pixels viewed less than this location.
+//! let q = osmviews.quantile(-0.1276, 51.5072);
+//! assert!(q.start <= q.end && q.end <= 1.0);
 //! # Ok::<(), osmviews::Error>(())
 //! ```
 //!
@@ -36,11 +40,13 @@
 //! instance can be shared across threads.
 
 mod cache;
+mod histogram;
 mod projection;
 mod tiff;
 
 use std::fmt;
 use std::fs::File;
+use std::ops::Range;
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -139,6 +145,83 @@ impl OsmViews {
     /// return `0.0`. Longitude wraps, so `181.0` and `-179.0` are the same place.
     #[must_use]
     pub fn rank(&self, lon: f64, lat: f64) -> f64 {
+        self.scale(self.sample(lon, lat))
+    }
+
+    /// Quantile range of the location at `lon`/`lat` among the raster's
+    /// pixels: the share of pixels in lower histogram buckets, up to the share
+    /// in lower-or-equal buckets. Both ends lie in `0.0..=1.0`.
+    ///
+    /// Unlike [`rank`](OsmViews::rank), a quantile has no unit, so it can be
+    /// averaged with an unrelated signal (say, a popularity score that is
+    /// itself a quantile). The result is a range because every pixel in one
+    /// histogram bucket (1/16 wide in `ln(1 + views/km²)`) shares the same
+    /// quantile interval; take the midpoint, or use
+    /// [`quantile_interpolated`](OsmViews::quantile_interpolated) for a single
+    /// number.
+    ///
+    /// **Reference population.** Quantiles are taken among the pixels above
+    /// histogram bucket 0, the bucket that holds every pixel whose view density
+    /// rounds to zero. That bucket is most of the planet, so over all pixels
+    /// nearly every inhabited place would land in the top few percent. A
+    /// location in bucket 0 returns `0.0..0.0`. To get the quantile over all
+    /// pixels instead, use `z + (1.0 - z) * q` with
+    /// `z = `[`zero_fraction()`](OsmViews::zero_fraction).
+    ///
+    /// **Pixels, not area.** The histogram counts Web Mercator pixels, which
+    /// cover less ground towards the poles. A quantile therefore reads as “the
+    /// share of map pixels viewed less than this”, with high latitudes
+    /// over-represented compared to their area.
+    ///
+    /// **Weekly drift.** Quantiles shift a little with each weekly file, like
+    /// [`rank`](OsmViews::rank) does. Don't mix results from different files
+    /// in one ranking.
+    #[must_use]
+    pub fn quantile(&self, lon: f64, lat: f64) -> Range<f64> {
+        self.header
+            .histogram
+            .range(f64::from(self.sample(lon, lat)))
+    }
+
+    /// Like [`quantile`](OsmViews::quantile), but a single number: the
+    /// cumulative pixel count interpolated linearly within the location's
+    /// histogram bucket. Always inside the range that `quantile` returns.
+    #[must_use]
+    pub fn quantile_interpolated(&self, lon: f64, lat: f64) -> f64 {
+        self.header
+            .histogram
+            .interpolate(f64::from(self.sample(lon, lat)))
+    }
+
+    /// Like [`quantile`](OsmViews::quantile), for a value already obtained
+    /// from [`rank`](OsmViews::rank) on this same file, so callers that keep
+    /// ranks don't need to look the location up again.
+    ///
+    /// Ranks clamped to `1.0` map to the top histogram bucket; values outside
+    /// `0.0..=1.0` are clamped first, and `NaN` maps to `0.0..0.0`.
+    #[must_use]
+    pub fn rank_quantile(&self, rank: f64) -> Range<f64> {
+        self.header.histogram.range(self.unscale(rank))
+    }
+
+    /// Like [`quantile_interpolated`](OsmViews::quantile_interpolated), for a
+    /// value already obtained from [`rank`](OsmViews::rank) on this same file.
+    #[must_use]
+    pub fn rank_quantile_interpolated(&self, rank: f64) -> f64 {
+        self.header.histogram.interpolate(self.unscale(rank))
+    }
+
+    /// Share of all pixels in histogram bucket 0, where the view density
+    /// rounds to zero. Most of the planet is in there, so this is close to
+    /// `1.0`. See [`quantile`](OsmViews::quantile) for how to use it.
+    #[must_use]
+    pub fn zero_fraction(&self) -> f64 {
+        self.header.histogram.zero_fraction()
+    }
+
+    /// The raw sample at `lon`/`lat`, or `0.0` if the location is out of range
+    /// or its tile cannot be decoded.
+    fn sample(&self, lon: f64, lat: f64) -> f32 {
         let Some((x, y)) = projection::project(lon, lat, self.header.size) else {
             self.cache.lock().unwrap().record_out_of_range();
             return 0.0;
@@ -152,7 +235,7 @@ impl OsmViews {
         let offset = TileOffset(self.header.tile_offsets.get(&self.mmap, grid_index));
 
         if let Some(value) = self.cache.lock().unwrap().lookup(offset, pixel) {
-            return self.scale(value);
+            return value;
         }
 
         let len = self.header.tile_byte_counts.get(&self.mmap, grid_index) as usize;
@@ -166,7 +249,7 @@ impl OsmViews {
         let elapsed = started.elapsed();
         let value = tile.get(pixel).copied().unwrap_or(0.0);
         self.cache.lock().unwrap().insert(offset, tile, elapsed);
-        self.scale(value)
+        value
     }
 
     /// A snapshot of internal counters, meant to be logged once at the end of a
@@ -205,6 +288,17 @@ impl OsmViews {
         }
         (f64::from(value) / max).clamp(0.0, 1.0)
     }
+
+    /// Inverts [`scale`](OsmViews::scale) as far as the clamping allows. The
+    /// round trip through `f32` recovers the stored sample exactly, so a value
+    /// on a bucket boundary is not pushed into the bucket below by rounding.
+    fn unscale(&self, rank: f64) -> f64 {
+        let max = self.header.max_value;
+        if rank.is_nan() || max <= 0.0 || max.is_nan() {
+            return 0.0;
+        }
+        f64::from((rank.clamp(0.0, 1.0) * max) as f32)
+    }
 }
 
 /// Diagnostic counters from an [`OsmViews`] instance.
@@ -214,7 +308,8 @@ impl OsmViews {
 /// `tiles_cached * 256 KiB`.
 #[derive(Debug, Clone, Copy)]
 pub struct Metrics {
-    /// Total calls to [`OsmViews::rank`].
+    /// Total location lookups: calls to [`OsmViews::rank`],
+    /// [`OsmViews::quantile`] and [`OsmViews::quantile_interpolated`].
     pub queries: u64,
     /// Calls whose coordinates fell outside the covered area (returned `0.0`).
     pub out_of_range: u64,

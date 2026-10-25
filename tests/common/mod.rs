@@ -11,13 +11,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Number of IFD entries [`build_tiff`] writes. Exposed so tests can locate the
 /// out-of-line arrays that follow the IFD.
-pub const ENTRY_COUNT: usize = 12;
+pub const ENTRY_COUNT: usize = 13;
 
 /// File offset of the `TileOffsets` array in a [`build_tiff`] file.
 pub const TILE_OFFSETS_POS: usize = 8 + 2 + ENTRY_COUNT * 12 + 4;
 /// File offset of the `TileByteCounts` array in a [`build_tiff`] file.
 pub const TILE_BYTE_COUNTS_POS: usize = TILE_OFFSETS_POS + 16;
 
+const TYPE_ASCII: u16 = 2;
 const TYPE_SHORT: u16 = 3;
 const TYPE_LONG: u16 = 4;
 const TYPE_FLOAT: u16 = 11;
@@ -51,7 +52,57 @@ fn short(v: u16) -> [u8; 4] {
 /// compressed blob and therefore one file offset, exercising the dedup cache.
 ///
 /// `compression` is `8` (zlib) or `1` (none).
+///
+/// The `GDAL_METADATA` tag carries the histogram the pipeline would write for
+/// these tiles (see [`histogram_of`]).
 pub fn build_tiff(compression: u16, tile_values: [f32; 4], max_value: f32) -> Vec<u8> {
+    let xml = histogram_xml(&histogram_of(tile_values));
+    build_tiff_with_metadata(compression, tile_values, max_value, Some(&xml))
+}
+
+/// Pixel counts per histogram bucket for a [`build_tiff`] raster, bucketed the
+/// way the pipeline does it: bucket `floor(v * 16)` for `v > 0`, else 0.
+pub fn histogram_of(tile_values: [f32; 4]) -> Vec<u64> {
+    let mut counts = vec![0u64];
+    for v in tile_values {
+        let bucket = if v > 0.0 {
+            (f64::from(v) / 0.0625) as usize
+        } else {
+            0
+        };
+        if bucket >= counts.len() {
+            counts.resize(bucket + 1, 0);
+        }
+        counts[bucket] += TILE as u64;
+    }
+    counts
+}
+
+/// The `GDAL_METADATA` XML that the OSMViews pipeline writes for a histogram
+/// with these bucket counts.
+pub fn histogram_xml(counts: &[u64]) -> String {
+    let mut s = String::from(
+        r#"<GDALMetadata><Item name="DEFAULT_RASTER_ATTRIBUTE_TABLE" sample="0" role="rat"><GDALRasterAttributeTable Row0Min="0" BinSize="0.0625" tableType="athematic"><FieldDefn index="0"><Name>min</Name><Type>1</Type><Usage>3</Usage></FieldDefn><FieldDefn index="1"><Name>max</Name><Type>1</Type><Usage>4</Usage></FieldDefn><FieldDefn index="2"><Name>count</Name><Type>1</Type><Usage>1</Usage></FieldDefn>"#,
+    );
+    for (i, count) in counts.iter().enumerate() {
+        s.push_str(&format!(
+            r#"<Row index="{i}"><F>{}</F><F>{}</F><F>{count}</F></Row>"#,
+            i as f64 * 0.0625,
+            (i + 1) as f64 * 0.0625,
+        ));
+    }
+    s.push_str("</GDALRasterAttributeTable></Item></GDALMetadata>");
+    s
+}
+
+/// Like [`build_tiff`], but with a caller-supplied `GDAL_METADATA` string, or
+/// none at all.
+pub fn build_tiff_with_metadata(
+    compression: u16,
+    tile_values: [f32; 4],
+    max_value: f32,
+    gdal_metadata: Option<&str>,
+) -> Vec<u8> {
     let mut blobs: Vec<Vec<u8>> = Vec::new();
     let mut blob_bits: Vec<u32> = Vec::new();
     let mut grid_to_blob = [0usize; 4];
@@ -90,6 +141,7 @@ pub fn build_tiff(compression: u16, tile_values: [f32; 4], max_value: f32) -> Ve
         tile_offsets,
         tile_byte_counts,
         &blob_refs,
+        gdal_metadata,
     )
 }
 
@@ -105,6 +157,7 @@ pub fn build_tiff_single_blob(compression: u16, blob: &[u8], max_value: f32) -> 
         [pos; 4],
         [blob.len() as u32; 4],
         &[blob],
+        Some(&histogram_xml(&[4 * TILE as u64])),
     )
 }
 
@@ -114,7 +167,26 @@ fn assemble(
     tile_offsets: [u32; 4],
     tile_byte_counts: [u32; 4],
     blobs: &[&[u8]],
+    gdal_metadata: Option<&str>,
 ) -> Vec<u8> {
+    // The metadata string, NUL-terminated, goes after the tile blobs.
+    let metadata_pos = TILE_BYTE_COUNTS_POS + 16 + blobs.iter().map(|b| b.len()).sum::<usize>();
+    let metadata = gdal_metadata.map(|m| {
+        let mut bytes = m.as_bytes().to_vec();
+        bytes.push(0);
+        bytes
+    });
+    // Without metadata, keep the IFD the same size by writing an unknown
+    // private tag, which readers must skip.
+    let last_entry = match &metadata {
+        Some(bytes) => ifd_entry(
+            42112,
+            TYPE_ASCII,
+            bytes.len() as u32,
+            (metadata_pos as u32).to_le_bytes(),
+        ),
+        None => ifd_entry(65000, TYPE_SHORT, 1, short(0)),
+    };
     let entries = [
         ifd_entry(256, TYPE_LONG, 1, 512u32.to_le_bytes()),
         ifd_entry(257, TYPE_LONG, 1, 512u32.to_le_bytes()),
@@ -133,6 +205,7 @@ fn assemble(
         ),
         ifd_entry(339, TYPE_SHORT, 1, short(3)),
         ifd_entry(341, TYPE_FLOAT, 1, max_value.to_le_bytes()),
+        last_entry,
     ];
     assert_eq!(entries.len(), ENTRY_COUNT);
 
@@ -154,6 +227,10 @@ fn assemble(
     }
     for blob in blobs {
         buf.extend_from_slice(blob);
+    }
+    assert_eq!(buf.len(), metadata_pos);
+    if let Some(bytes) = metadata {
+        buf.extend_from_slice(&bytes);
     }
     buf
 }

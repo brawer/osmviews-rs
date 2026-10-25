@@ -59,3 +59,47 @@ fn bench_rank_uncached() {
         elapsed.as_nanos() as f64 / iterations as f64,
     );
 }
+
+#[test]
+#[ignore = "benchmark; run with --release --nocapture"]
+fn bench_quantile() {
+    let fixture = TempTiff::new(&build_tiff(8, [3.0, 0.0, 7.0, 7.0], 10.0));
+    let osmviews = OsmViews::open(&fixture.path).unwrap();
+    let _ = osmviews.quantile(-90.0, 45.0); // warm the tile
+
+    let iterations = 10_000_000u64;
+    let start = Instant::now();
+    let mut acc = 0.0f64;
+    for i in 0..iterations {
+        let lon = -120.0 + f64::from((i % 60) as u32);
+        acc += osmviews.quantile(lon, 45.0).end;
+    }
+    let elapsed = start.elapsed();
+
+    eprintln!(
+        "quantile(), cached tile: {:.1} ns/call ({iterations} calls, acc={acc:.1})",
+        elapsed.as_nanos() as f64 / iterations as f64,
+    );
+}
+
+#[test]
+#[ignore = "benchmark; run with --release --nocapture"]
+fn bench_rank_quantile() {
+    let fixture = TempTiff::new(&build_tiff(8, [3.0, 0.0, 7.0, 7.0], 10.0));
+    let osmviews = OsmViews::open(&fixture.path).unwrap();
+
+    let iterations = 100_000_000u64;
+    let start = Instant::now();
+    let mut acc = 0.0f64;
+    for i in 0..iterations {
+        // Vary the input so the lookup can't be hoisted out of the loop.
+        let rank = f64::from((i % 1000) as u32) / 1000.0;
+        acc += osmviews.rank_quantile(std::hint::black_box(rank)).end;
+    }
+    let elapsed = start.elapsed();
+
+    eprintln!(
+        "rank_quantile(): {:.1} ns/call ({iterations} calls, acc={acc:.1})",
+        elapsed.as_nanos() as f64 / iterations as f64,
+    );
+}

@@ -10,6 +10,7 @@
 //! be a general TIFF reader.
 
 use crate::Error;
+use crate::histogram::Histogram;
 
 /// Byte offset of a tile’s compressed data within the file.
 ///
@@ -33,7 +34,9 @@ const TAG_TILE_OFFSETS: u16 = 324;
 const TAG_TILE_BYTE_COUNTS: u16 = 325;
 const TAG_SAMPLE_FORMAT: u16 = 339;
 const TAG_MAX_SAMPLE_VALUE: u16 = 341;
+const TAG_GDAL_METADATA: u16 = 42112;
 
+const TYPE_ASCII: u16 = 2;
 const TYPE_SHORT: u16 = 3;
 const TYPE_LONG: u16 = 4;
 const TYPE_FLOAT: u16 = 11;
@@ -63,6 +66,8 @@ pub(crate) struct Header {
     pub max_value: f64,
     pub tile_offsets: TileTable,
     pub tile_byte_counts: TileTable,
+    /// Pixel-value histogram from the `GDAL_METADATA` tag.
+    pub histogram: Histogram,
 }
 
 #[derive(Copy, Clone)]
@@ -151,6 +156,20 @@ impl Entry {
             _ => None,
         }
     }
+
+    /// Interprets the entry as an out-of-line ASCII string, without its
+    /// trailing NUL. Strings of up to four bytes are stored inline; we only
+    /// read strings far longer than that, so we don't implement that path.
+    fn long_ascii<'a>(&self, data: &'a [u8]) -> Option<&'a str> {
+        let len = self.count as usize;
+        if self.typ != TYPE_ASCII || len <= 4 {
+            return None;
+        }
+        let at = u32::from_le_bytes(self.value) as usize;
+        let bytes = data.get(at..at.checked_add(len)?)?;
+        let bytes = bytes.strip_suffix(&[0]).unwrap_or(bytes);
+        std::str::from_utf8(bytes).ok()
+    }
 }
 
 fn err(msg: &'static str) -> Error {
@@ -209,6 +228,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Header, Error> {
     let mut max_value = None;
     let mut tile_offsets = None;
     let mut tile_byte_counts = None;
+    let mut gdal_metadata = None;
 
     for i in 0..n {
         let at = ifd + 2 + i * 12;
@@ -232,6 +252,13 @@ pub(crate) fn parse(data: &[u8]) -> Result<Header, Error> {
             TAG_MAX_SAMPLE_VALUE => max_value = entry.scalar_f64(data),
             TAG_TILE_OFFSETS => tile_offsets = Some(entry),
             TAG_TILE_BYTE_COUNTS => tile_byte_counts = Some(entry),
+            TAG_GDAL_METADATA => {
+                gdal_metadata = Some(
+                    entry
+                        .long_ascii(data)
+                        .ok_or(err("unreadable GDAL_METADATA"))?,
+                );
+            }
             _ => {}
         }
     }
@@ -269,6 +296,10 @@ pub(crate) fn parse(data: &[u8]) -> Result<Header, Error> {
         None => return Err(err("missing SMaxSampleValue")),
     };
 
+    // Our own pipeline always writes the histogram, and the quantile methods
+    // need it, so a file without one is not a raster this crate reads.
+    let histogram = Histogram::parse(gdal_metadata.ok_or(err("missing GDAL_METADATA histogram"))?)?;
+
     let tiles_across = size / TILE_SIDE;
     let grid = (tiles_across as usize)
         .checked_mul(tiles_across as usize)
@@ -305,6 +336,7 @@ pub(crate) fn parse(data: &[u8]) -> Result<Header, Error> {
         max_value,
         tile_offsets,
         tile_byte_counts,
+        histogram,
     })
 }
 

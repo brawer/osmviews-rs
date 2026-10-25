@@ -81,6 +81,15 @@ one instance can serve many threads.
 sample divided by the raster’s embedded planetary maximum, clamped; that scaling
 is an implementation detail and not part of the API contract.
 
+**Quantiles.** The pipeline embeds the pixel-value histogram in the
+`GDAL_METADATA` tag (42112) as a GDAL Raster Attribute Table: linear buckets
+1/16 wide in `ln(1 + views/km²)`, with a pixel count each. `open` parses it
+with a small hand-written reader for exactly that XML shape (no XML crate) and
+precomputes the cumulative share of pixels per bucket, so `quantile()` is
+`rank()` plus an array lookup and `rank_quantile()` needs no tile at all. Files
+without a usable histogram are rejected: the pipeline is ours and always writes
+one, and a made-up quantile would be worse than an error.
+
 **Observability.** `metrics()` returns a snapshot of counters — query count,
 cache hit rate, evictions, cumulative decode time — meant to be logged once at
 the end of a long-running job. The counters live under the cache mutex that every
